@@ -75,11 +75,11 @@ agent-orchestration/
 - Python 3.11 or newer
 - Node.js 20 or newer
 - npm
-- Ollama running locally or reachable over network
+- Ollama running locally, reachable over network, or an Ollama Cloud API key
 
 ## Ollama setup
 
-Start Ollama and make sure the model is available:
+For local Ollama, start Ollama and make sure the model is available:
 
 ```powershell
 ollama run gpt-oss:20b-cloud
@@ -89,15 +89,26 @@ The backend reads these environment variables:
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `OLLAMA_BASE_URL` | `http://127.0.0.1:11434` | Ollama server URL |
+| `OLLAMA_BASE_URL` | `http://127.0.0.1:11434` | Ollama server URL. Use `https://ollama.com` for Ollama Cloud API access. |
 | `OLLAMA_MODEL` | `gpt-oss:20b-cloud` | Model used for all agent calls |
+| `OLLAMA_API_KEY` | unset | Optional bearer token for Ollama Cloud API access |
 
-Example:
+Local example:
 
 ```powershell
 $env:OLLAMA_BASE_URL="http://127.0.0.1:11434"
 $env:OLLAMA_MODEL="gpt-oss:20b-cloud"
 ```
+
+Ollama Cloud API example:
+
+```powershell
+$env:OLLAMA_BASE_URL="https://ollama.com"
+$env:OLLAMA_API_KEY="your_ollama_api_key"
+$env:OLLAMA_MODEL="gpt-oss:120b"
+```
+
+Use the cloud model name available to your Ollama account. Ollama's direct Cloud API examples use model names such as `gpt-oss:120b`.
 
 ## Run locally
 
@@ -151,6 +162,55 @@ http://127.0.0.1:5173
 
 ```powershell
 npm.cmd run build --prefix "frontend"
+```
+
+## Deploy on Render
+
+This repository is a monorepo, so deploy it as two Render services:
+
+- FastAPI backend: Render Web Service from `backend/`
+- React frontend: Render Static Site from `frontend/`
+
+The included `render.yaml` can be used as a Render Blueprint. Render's Blueprint docs recommend keeping secrets out of source by using `sync: false`; Render will prompt for those values during initial Blueprint creation.
+
+### Backend environment variables
+
+Set these on the `agent-canvas-api` service:
+
+| Variable | Value |
+| --- | --- |
+| `OLLAMA_BASE_URL` | `https://ollama.com` |
+| `OLLAMA_MODEL` | Your Ollama Cloud model, for example `gpt-oss:120b` |
+| `OLLAMA_API_KEY` | Your Ollama API key |
+| `CORS_ORIGINS` | Your frontend URL, for example `https://agent-canvas-web.onrender.com` |
+
+### Frontend environment variables
+
+Set this on the `agent-canvas-web` static site:
+
+| Variable | Value |
+| --- | --- |
+| `VITE_API_BASE_URL` | Your backend URL, for example `https://agent-canvas-api.onrender.com` |
+
+If Render assigns different public URLs, use those exact URLs. After changing `VITE_API_BASE_URL`, redeploy the frontend because Vite embeds this value at build time.
+
+Manual setup without the Blueprint:
+
+Backend service:
+
+```text
+Root Directory: backend
+Build Command: pip install -e .
+Start Command: python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
+Health Check Path: /api/health
+```
+
+Frontend static site:
+
+```text
+Root Directory: frontend
+Build Command: npm ci && npm run build
+Publish Directory: dist
 ```
 
 ## API endpoints
